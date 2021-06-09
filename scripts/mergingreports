@@ -1,0 +1,43 @@
+# /bin/sh
+set -ex
+numberofreports=()
+numberofreports=($(ls -l /tmp/results/ | grep reports | awk  '{print $9}'))
+export GATLING_HOME=/opt/performance/gatling-charts-highcharts-bundle-2.3.1
+
+totalreports="${numberofreports[@]}"
+echo "Number of Reports for merging"+$totalreports
+ if [ -z $numberofreports ];
+   then
+   echo "---------------------------------------------------No Reports Exiting script----------------------------------------------"
+   exit 1
+ fi
+
+
+
+
+echo "Cleaning Destination Folder----------------"
+rm -rf $GATLING_HOME/results/* > /dev/null 2>&1 || true
+rm -rf $WORKSPACE/reports > /dev/null 2>&1 || true
+mkdir -p $WORKSPACE/reports
+count=1
+for report in "${numberofreports[@]}"
+do
+pathset=/tmp/results/$report/$getdirname/
+echo "Copying report from the Results Folder----  "$report
+getdirname=($(ls -l /tmp/results/$report | awk  '{print $9}'))
+pathset=/tmp/results/$report/$getdirname/
+if [ $count -eq 1 ]; then
+  export NEWSIMULATIONPATHSET=$getdirname
+  mkdir -p $GATLING_HOME/results/$NEWSIMULATIONPATHSET
+  
+fi
+
+echo "Here is the path from where data is being copied----------------"+$pathset
+cp $pathset/simulation.log  $GATLING_HOME/results/
+mv  $GATLING_HOME/results/simulation.log $GATLING_HOME/results/$NEWSIMULATIONPATHSET/simulation$count.log
+count=$((count+1))
+done
+
+
+$GATLING_HOME/bin/gatling.sh -ro $GATLING_HOME/results/$NEWSIMULATIONPATHSET
+cp -R $GATLING_HOME/results/* $WORKSPACE/reports

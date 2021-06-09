@@ -1,0 +1,197 @@
+pipeline {
+  agent any
+  parameters {
+    choice(
+     choices: 'rid-fcb\nrid-prod',
+     description: 'Which project?',
+     name: 'PROJECT_ID_PARAM'
+    )
+     choice(
+      choices: 'FCB-BARCA-DEV-EU-Cl1\nFCB-STG-EU-Cl2\nPROD-AP-Cl1\nPROD-EU-Cl1\nPROD-US-Cl1',
+      description: 'Which cluster?',
+      name: 'APP_CLUSTER_PARAM'
+    )
+    choice(
+      choices: '1\n2\n3\n4\n5\n6\n7\n8\n9\n10',
+      description: 'How Many Clients?',
+      name: 'APP_CLIENT_PARAM'
+    )
+   
+    
+     string(
+      defaultValue: "gatling.simulations.Simulations",
+      description: 'Which Test you want to run-enter that class',
+      name: 'SIMULATION_CLASS'
+    )
+    
+      string(
+      defaultValue: "Name of teh scenario",
+      description: 'Please enter the scenario to be executed ',
+      name: 'Scenario'
+    )
+     string(
+      defaultValue: "http://sample.com",
+      description: 'URI',
+      name: 'URI'
+    )
+    string(
+      defaultValue: "10",
+      description: 'Total Number of Users',
+      name: 'Total_Number_of_Users'
+    )
+    string(
+      defaultValue: "1800",
+      description: 'Duration for Test in (Seconds)',
+      name: 'Duration_for_Test'
+    )
+    string(
+      defaultValue: "10",
+      description: 'Transactions per Second to be achieved',
+      name: 'Transactions_per_Second'
+    )
+    string(
+      defaultValue: "10",
+      description: 'ramp duration',
+      name: 'rampduration'
+    )
+    
+    string(
+      defaultValue: "-DsomeVal=aad",
+      description: 'Please donot enter value in this section-Only for Advance usuage',
+      name: 'JVM_ARGS'
+    )
+     
+    booleanParam(
+       defaultValue: true,
+       description: 'Confirm Deployment?',
+       name: 'ConfirmDeploy'
+     )
+     booleanParam(
+       defaultValue: true,
+       description: 'Confirm Merging?',
+       name: 'ConfirmMerging'
+     )
+     booleanParam(
+       defaultValue: true,
+       description: 'Confirm Reporting?',
+       name: 'ConfirmReporting'
+     )
+    
+  }
+  environment {
+      APP_NAME = "ridgatling"
+      GIT_URL = "ssh://git@/idc/${APP_NAME}.git"
+      GIT_BRANCH = "main"
+      GIT_CREDENTIALS = 'ec1cfdb5-30d1-4a1b-a19d-1249661445a0'
+      CLUSTER_NAME = "${APP_CLUSTER_PARAM}"
+      CLIENT_NUMBERS = "${APP_CLIENT_PARAM}"
+      SIMULATION_CLASS = "${SIMULATION_CLASS}"
+      SCENARIO = "${Scenario}"
+      ARC_PAGES_URI = "${arcPagesURI}"
+      TOTAL_USERS = "${Total_Number_of_Users}"
+      TEST_DURATION = "${Duration_for_Test}"
+      QPS = "${Transactions_per_Second}"
+      JVM_ARGS1 = "-DScenario=${SCENARIO} -DarcPagesURI=${ARC_PAGES_URI} -Dtotalusers=${TOTAL_USERS} -Dtotalqps=${QPS} -Drampduration=${RAMP_DURATION} -Dholdduration=${TEST_DURATION}"                                                                                                                                       
+      JVM_ARGS = "${JVM_ARGS1} ${JVM_ARGS}"
+      RAMP_DURATION = "${rampduration}"
+      def JOB_BRANCH = BRANCH_NAME.replace('/','%2F')
+      PROJECT_ID = "${params.PROJECT_ID_PARAM}"
+      
+  }
+
+  stages {
+    stage('Select Docker tag') {
+      steps {
+        script {
+          echo "Select Docker tag"
+          withCredentials([file(credentialsId: PROJECT_ID, variable: 'gcloudKeyFile')]) {
+                sh("gcloud auth activate-service-account --key-file=$gcloudKeyFile --project=${PROJECT_ID}")
+                sh("gcloud config set account qeuser@${PROJECT_ID}.iam.gserviceaccount.com")
+                withEnv(["GOOGLE_APPLICATION_CREDENTIALS=${gcloudKeyFile}"]) {
+                  GCLOUD_TOKEN=sh(script: "gcloud auth print-access-token --project=${PROJECT_ID}", returnStdout: true)
+                  sh "${WORKSPACE}/scripts/get_docker_tags ${PROJECT_ID} ${APP_NAME} ${GCLOUD_TOKEN}"
+                  env.DOCKER_TAG_LIST = readFile (file: "${WORKSPACE}/docker_tag_list")
+                  env.DOCKER_TAG = input message: 'Select the tag', ok: 'Select tag',
+                  parameters: [choice(name: 'DOCKER_TAG', choices: env.DOCKER_TAG_LIST, description: 'What is the tag for Deployment?')]
+                  env.DOCKER_TAGG = "${DOCKER_TAG}"
+                }
+          }
+        }
+      }
+    }
+    
+
+    stage('Deploy Gatling in cluster') {
+      when {
+          expression { return ConfirmDeploy ==~ /(?i)(Y|YES|T|TRUE|ON|RUN)/ }
+      }
+      steps {
+        echo "Deploy Chart ${APP_NAME} : ${ConfirmDeploy}"
+        dir(path: 'ridgatlingapp/jenkins/deploy') {
+         script {
+            switch(CLUSTER_NAME) {
+			       
+              
+              case "FCB-BARCA-DEV-EU-Cl1":
+                CLUSTER = "barca-eu-fcb-dev-cluster1"
+                ZONE = "europe-west1-c"
+                break
+              case "FCB-STG-EU-Cl2":
+                  CLUSTER = "rid-eu-fcb-stg-cluster2"
+                  ZONE = "europe-west1-b"
+                  break
+                  
+                  
+              case "PROD-AP-Cl1":
+                CLUSTER = "rid-ap-prod-cluster1"
+                ZONE = "asia-northeast1-c"
+                break
+              case "PROD-EU-Cl1":
+                CLUSTER = "rid-eu-prod-cluster1"
+                ZONE = "europe-west3-c"
+                break
+              case "PROD-US-Cl1":
+                CLUSTER = "rid-us-prod-cluster1"
+                ZONE = "us-west1-c"
+                break
+              }
+            }
+          withCredentials([file(credentialsId: PROJECT_ID, variable: 'gcloudKeyFile')]) {
+                sh("gcloud auth activate-service-account --key-file=$gcloudKeyFile --project=${PROJECT_ID}")
+                sh("gcloud container clusters get-credentials $CLUSTER --zone $ZONE ")
+
+                withEnv(["GOOGLE_APPLICATION_CREDENTIALS=${gcloudKeyFile}"]) {
+                  sh("$WORKSPACE/scripts/deploy_chart")
+                }
+          }
+        }
+      }
+    }
+    stage('Merging Reports') {
+      when {
+          expression { return ConfirmMerging ==~ /(?i)(Y|YES|T|TRUE|ON|RUN)/ }
+      }
+      steps {
+        echo "Executing Tests : ${ConfirmMerging}"
+        dir(path: 'ridgatlingapp/jenkins/deploy') {
+         
+                  sh("$WORKSPACE/scripts/mergingreports")
+          
+          }
+        }
+      }
+    
+     stage('Gatling Archiving Report') {
+      when {
+          expression { return ConfirmReporting ==~ /(?i)(Y|YES|T|TRUE|ON|RUN)/ }
+      }
+      steps {
+        echo "Gatling Reporting' : ${WORKSPACE}"
+        
+         dir(path: "${WORKSPACE}/reports") {
+         gatlingArchive()}
+                                  }
+            }
+                                
+  }
+}

@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gatling-sim
+spec:
+  parallelism: 1
+  template:
+    spec:
+      containers:
+      - name: perftest
+        image: paramveer1974/gatling-sim:latest
+        env:
+        - name: SIMULATION_CLASS
+          value: computerdatabase.GetRequestSimulation 
+        - name: JVM_ARGS
+          value: ""
+        command: ["/opt/gatling-sim/gatlingrun.sh"]
+      restartPolicy: Never
+ 

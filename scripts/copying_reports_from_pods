@@ -1,0 +1,89 @@
+#!/bin/sh
+##########Fetching containers data
+
+podsrunning=($(kubectl get pods |grep perftest | awk  '{print $1}'))
+
+podsrunninglength="${podsrunning[@]}"
+echo $podsrunninglength
+
+ if [ -z $podsrunning ];
+   then
+   echo "---------------------------------------------------No Pods Exiting script----------------------------------------------"
+   exit 1
+ fi
+echo "---------------------------------------------------Pods details-------------------------------------------------"
+#echo "All Pods running"
+echo $podsrunning
+#echo "First Pod running"
+#echo ${podsrunning[0]}
+
+#########Variables settings\
+fileexist=()
+count=0
+filestatus=0
+######### Loop for status check
+echo "---------------------------------While loop start for status check of all Machines---------------------------------"
+while [ $filestatus -eq 0 ]
+ do
+
+    for pod in "${podsrunning[@]}"
+    do
+        echo "checking whether file exists in----------------"$pod
+        filename=($(kubectl exec $pod ls /keep_it_alive))
+      #  echo $filename
+        if [ $filename == "/keep_it_alive" ]
+        then
+        fileexist[$count]=1
+        else
+        fileexist[$count]=0
+        break
+        fi
+        count=$((count+1))
+    done
+
+      min=1000
+      for filestat in "${fileexist[@]}"
+      do
+        if [ $min -lt $filestat ]
+        then
+        continue
+        else
+        min=$filestat
+        fi
+      done
+
+ filestatus=$min
+# echo "here is minimum value  " + $min
+ echo "File status after all file verifications---------------- " + $filestatus
+ done
+######### Status after all status are collected
+
+echo "--------------------------------------------all the Executions done status---------------------------------------------"
+    for filestat in "${fileexist[@]}"
+    do
+        echo $filestat
+    done
+
+#---------copying data from all containers code---------
+#------Start
+
+echo "---------------------------------------copying data from all containers code---------------------------------------"
+count=1
+rm -rf  /tmp/results/
+mkdir -p /tmp/results
+for pod in "${podsrunning[@]}"
+do
+echo "Copying report from the pod----  "$pod
+kubectl cp $pod:/opt/gatling-sim/build/reports/  /tmp/results/reports$count -c gatlingrun
+count=$((count+1))
+done
+
+
+#---------Removing Status data  from all containers code---------
+#------Start
+echo "------------------------------------------Removing Dummy files from containers-----------------------------------------"
+for pod in "${podsrunning[@]}"
+do
+echo "File removing----------------"$pod
+kubectl exec -it  $pod rm /keep_it_alive
+done

@@ -1,0 +1,46 @@
+#!/bin/bash
+set -eux
+#echo "Here is my real file with Sleep Time of --------------300"
+
+#-Psim="fqn" \
+#-PjvmArgs='-Dtotalusers=10 -Dtotalduration=30'
+        
+
+
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               
+#echo "In gatling scripts.........."      +$JVM_ARGS
+set -f
+#gradle clean gatling -Psim=$SIMULATION_CLASS -PjvmArgs="\'${JVM_ARGS}\'" | true
+#gradle clean gatling -Psim="${SIMULATION_CLASS}" -PjvmArgs="${JVM_ARGS}"
+
+echo "gradle clean gatlingRun-${SIMULATION_CLASS}" > run.sh
+#echo "gradlew clean gatlingRun-${SIMULATION_CLASS} -PjvmArgs='${JVM_ARGS}'" > run.sh
+echo "==="
+cat run.sh
+echo "===="
+chmod -R 777 /opt/gatling-sim
+bash run.sh
+
+
+set +f
+   
+   
+
+echo "Access Rightes changed ------------------"
+chmod -R 777 /opt/gatling-sim
+#cd /opt/gatling-sim/build
+#echo "-------here we are currenlty------- "
+#pwd
+#zip -r reports.zip reports
+
+echo "READY TO COPY------------------With Sleep"
+touch /keep_it_alive
+
+while [ -f /keep_it_alive ]
+	do
+		sleep 30
+	done
+
+echo "EXITING"
+exit

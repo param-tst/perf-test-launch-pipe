@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "perf-lanucher.fullname" . }}
+  labels:
+    {{- include "perf-lanucher.labels" . | nindent 4 }}
+spec:
+  parallelism: {{ .Values.replicaCount }}
+  template:
+    spec:
+      containers:
+      - name: {{ .Values.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: SIMULATION_CLASS
+          value: {{ .Values.SIMULATION_CLASS }} 
+        - name: JVM_ARGS
+          value: {{ .Values.SIMULATION_CLASS }} 
+        command: ["/opt/gatling-sim/gatlingrun.sh"]
+      restartPolicy: Never

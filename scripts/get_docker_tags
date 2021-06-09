@@ -1,0 +1,6 @@
+#!/bin/bash
+set -x
+PROJECT_ID=$1
+APP_NAME=$2
+OAUTH_TOKEN=$3
+curl --silent -u oauth2accesstoken:$OAUTH_TOKEN https://gcr.io/v2/$PROJECT_ID/$APP_NAME/tags/list | jq ".tags[]" | sed 's/"//g' | sort -n > ${WORKSPACE}/docker_tag_list

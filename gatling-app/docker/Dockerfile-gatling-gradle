@@ -1,0 +1,87 @@
+	# Gatling is a highly capable load testing tool.
+#
+# Documentation: https://gatling.io/docs/2.3/
+# Cheat sheet: http://gatling.io/#/cheat-sheet/2.3
+
+FROM openjdk:8-jdk-alpine
+
+
+MAINTAINER Paramveer Singh <paramveer.singh@param_tst@yahoo.co.in>
+
+# working directory for gatling
+WORKDIR /opt
+
+# gating version
+
+ENV GATLING_VERSION 3.6.0
+ENV GRADLE_VERSION 7.0.2
+
+# create directory for gatling install
+RUN mkdir -p gatling
+RUN mkdir -p gradle
+RUN mkdir -p gatling-sim
+
+# install gatling
+
+ 
+RUN mkdir -p /tmp/downloads && \
+  wget -q -O /tmp/downloads/gatling-$GATLING_VERSION.zip \
+  https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/$GATLING_VERSION/gatling-charts-highcharts-bundle-$GATLING_VERSION-bundle.zip && \
+  mkdir -p /tmp/archive && cd /tmp/archive && \
+  unzip /tmp/downloads/gatling-$GATLING_VERSION.zip && \
+  mv /tmp/archive/gatling-charts-highcharts-bundle-$GATLING_VERSION/* /opt/gatling/ && \
+  wget -q -O /tmp/downloads/gradle-$GRADLE_VERSION-bin.zip \
+  https://services.gradle.org/distributions/gradle-$GRADLE_VERSION-bin.zip  
+CMD ["echo","gatling----------------- software ready for use -----------------"]
+ 
+# install Gradle
+RUN mkdir -p /tmp/archive1 && cd /tmp/archive1 && \
+  unzip /tmp/downloads/gradle-$GRADLE_VERSION-bin.zip && \
+  mv /tmp/archive1/gradle-$GRADLE_VERSION/* /opt/gradle/ 
+CMD ["echo","Gradle----------------- software ready for use -----------------"]
+   
+# install application code
+COPY  ./gatling-sim.zip /tmp/downloads
+RUN mkdir -p /tmp/archivegat && cd /tmp/archivegat && \
+    unzip /tmp/downloads/gatling-sim.zip && \
+    mv /tmp/archivegat/gatling-sim/* /opt/gatling-sim/
+      
+#COPY ./gatling-app/gatling-sim/ /opt/gatling-sim/ 
+COPY ./gatling-app/docker/rungatling /opt/gatling-sim/gatlingrun.sh
+
+CMD ["echo","Testing Code-----------------ready for use -----------------"]
+
+
+#clean all
+RUN rm -rf /tmp/*  
+
+# change context to gatling directory
+#WORKDIR  /opt/gatling
+WORKDIR  /opt/gatling-sim
+
+# set directories below to be mountable from host
+VOLUME ["/opt/gatling/conf", "/opt/gatling/results", "/opt/gatling/user-files"]
+
+# set environment variables
+ENV PATH /opt/gatling/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/gradle/bin:/opt/gatling-sim
+ENV GATLING_HOME /opt/gatling
+ENV GRADLE_HOME /opt/gradle
+ENV PATH=$PATH:$GRADLE_HOME/bin
+
+#RUN ["echo","$GATLING_HOME"]
+#CMD ["echo","GRADLE_HOME"]
+#CMD ["echo","$PWD"]
+RUN echo $GATLING_HOME
+RUN echo $GRADLE_HOME
+RUN pwd 
+RUN cd  /opt/gatling-sim &&  chmod -R 777  /opt/gatling-sim  
+#&& chown -R jenkins:jenkins  /opt/gatling-sim && 
+#&&  chmod -R ug+rwx  /opt/gatling-sim 
+#&& ls -lrt
+#RUN yum -y install zip && zip
+RUN apk add --no-cache --upgrade bash
+CMD ["echo","Finally Ready for Execution"]
+
+
+#ENTRYPOINT ["/opt/gatling-sim/gatlingrun.sh"]
+

@@ -1,0 +1,61 @@
+pipeline {
+  agent any
+
+  parameters {
+    choice(
+     choices: 'rid-fcb\nrid-prod',
+     description: 'Which project in GCP,where we have to push this build in REPO?',
+     name: 'PROJECT_ID_PARAM'
+    )
+    
+    string(
+      defaultValue: "idc",
+      description: 'Please mention your Project GIT Id of Project ?',
+      name: 'GATLING_SCRIPTS_PROJECT_ID'
+    )
+    
+     string(
+      defaultValue: "ridgatling",
+      description: 'Please mention your Project Repository ?',
+      name: 'GATLING_SCRIPTS_REPOSITORY'
+    )
+     string(
+      defaultValue: "rid-datasynch",
+      description: 'Please mention git branch',
+      name: 'GATLING_SCRIPTS_BRANCH_ID'
+    )
+  }
+  environment {
+      APP_NAME = "${GATLING_SCRIPTS_REPOSITORY}"
+      APP_VERSION = "${BUILD_NUMBER}"
+      CLUSTER_NAME = "${params.APP_CLUSTER_PARAM}"
+      GIT_PROJECT= "${GATLING_SCRIPTS_PROJECT_ID}"
+      GIT_URL = "ssh://git@git.dev.db/${GIT_PROJECT}/${APP_NAME}.git"
+      GIT_BRANCH = "${GATLING_SCRIPTS_BRANCH_ID}"
+      GIT_CREDENTIALS = 'ec1cfdb5-30d1-4a1b-a19d-1249661445a0'
+      def JOB_BRANCH = BRANCH_NAME.replace('/','%2F')
+      PROJECT_ID = "${params.PROJECT_ID_PARAM}"
+      
+  }
+  stages {
+    stage('Build App') {
+      steps {
+        echo "Building Docker : ${APP_NAME}"
+        dir(path: "ridgatlingapp/docker/ridgatling") {
+          git(url: GIT_URL, branch: GIT_BRANCH, credentialsId: GIT_CREDENTIALS) 
+          }
+           dir(path: "ridgatlingapp/docker") {
+          withCredentials([file(credentialsId: PROJECT_ID, variable: 'gcloudKeyFile')]) {
+          
+                sh("gcloud auth activate-service-account --key-file=$gcloudKeyFile --project=${PROJECT_ID}")
+                sh("gcloud config set account qeuser@${PROJECT_ID}.iam.gserviceaccount.com")
+                withEnv(["GOOGLE_APPLICATION_CREDENTIALS=${gcloudKeyFile}"]) {
+                  sh("$WORKSPACE/scripts/build_docker")
+                }
+          }
+        }
+      }
+    }
+    }
+    }
+ 

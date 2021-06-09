@@ -1,0 +1,43 @@
+#!/bin/bash
+set -ex
+# Read environment variables passed from Jenkins
+APP=${APP_NAME}
+CLUSTER_NAME="${CLUSTER_NAME}"
+TAG=${DOCKER_TAG}
+NAMESPACE=${APP_NAMESPACE}
+PROJECT=${PROJECT_ID}
+CLIENT_NOS=${CLIENT_NUMBERS}
+echo "PROJECT : ${PROJECT}"
+
+# Set proxy
+export http_proxy=http://stb-dev-pro.com
+export https_proxy=http://stb-dev-proxy.db.com
+
+# Deploy
+#!/bin/sh
+
+if [ -z ${BUILD_NUMBER} ]; then
+  export BUILD_NUMBER=latest
+fi
+
+# Set proxy
+export http_proxy=http://stb-dev-proxy.db.com
+export https_proxy=http://stb-dev-proxy.db.com
+
+#kubectl run ridgatling --image gcr.io/${PROJECT_ID}/${APP_NAME}:${DOCKER_TAG} --replicas=${CLIENT_NOS}
+#kubectl create -f ./job.yaml
+echo "here are my env variables---------------- "+$SIMULATION_CLASS, $JVM_ARGS
+sed -i "s/DOCKER_TAG/$DOCKER_TAG/" $WORKSPACE/job-$PROJECT_ID.yaml
+sed -i "s/REPLICAS_NOS/$CLIENT_NUMBERS/" $WORKSPACE/job-$PROJECT_ID.yaml
+sed -i "s/VAR_SIMULATION_CLASS/$SIMULATION_CLASS/" $WORKSPACE/job-$PROJECT_ID.yaml
+sed -i 's/VAR_JVM_ARGS/'"$JVM_ARGS"'/' $WORKSPACE/job-$PROJECT_ID.yaml
+
+
+kubectl apply -f $WORKSPACE/job-$PROJECT_ID.yaml
+
+#podsrunning=($(kubectl get pods |grep ridgatling | awk  '{print $1}'))
+#echo $podsrunning
+echo $WORKSPACE
+$WORKSPACE/scripts/copying_reports_from_pods
+#$WORKSPACE/scripts/mergingreports    
+
